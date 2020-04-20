@@ -1,3 +1,13 @@
+""" Skeleton
+
+This module allows to compute the skeleton of a tidal channel network quasi-automatically
+
+Author: Olivier Gourgue
+       (University of Antwerp, Belgium & Boston University, MA, United States)
+
+"""
+
+
 import numpy as np
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, \
                              MultiPolygon
@@ -13,6 +23,21 @@ from centerline.geometry import Centerline
 ################################################################################
 
 def channel_edges(x, y, tri, creek, smin = 1e-6):
+
+  """ Compute the channel edges of a tidal channel network based on a boolean field determining which nodes of a triangular mesh are within a creek or not
+
+  Required parameters:
+  x, y (NumPy arrays of shape (n)) grid node coordinates
+  tri (NumPy array of shape (m, 3): triangle connectivity table
+  creek (NumPy array of shape (n) and type logical): True if creek, False otherwise
+
+  Optional parameters:
+  smin (float, default 1e-6): minimum polygon surface area (m^2); polygons with smaller surface area will be disregarded
+
+  Returns:
+  MultiPolygon: structure of multiple polygons describing channel edges
+
+  """
 
 
   #################
@@ -118,6 +143,16 @@ def channel_edges(x, y, tri, creek, smin = 1e-6):
 
 def raw_skeleton(mpol):
 
+  """ Compute the raw skeleton of a tidal channel network based on channel edges
+
+  Required parameters:
+  mpol (MultiPolygon): structure of multiple polygons describing channel edges
+
+  Returns:
+  list of MultiLineStrings (one for each Polygon of the input MultiPolygon) describing the raw skeleton
+
+  """
+
   # compute and return list of raw skeletons (one for each polygon)
   skls = []
   for pol in pols:
@@ -131,6 +166,22 @@ def raw_skeleton(mpol):
 ################################################################################
 
 def clean_skeleton(skls, mpol, ratio = 1):
+
+  """ Clean raw skeleton by merging segments between two confluence points into single LineStrings (so-called sections) and removing tip sections whose ratio (section length / distance between confluence point and channel edges) are shorter than a threshold value
+
+  Required parameters:
+  skls (list of MultiLineStrings): raw skeleton
+  mpol (MultiPolygon): structure of multiple Polygons describing channel edges
+
+  Optional parameters:
+  ratio (float, default = 1): threshold ratio for tip sections (section length / distance between confluence point and channel edges): tip sections with smaller ratio are disregarded
+
+  Returns:
+  Numpy array of shape (n, 2): coordinates of the tip and confluence points (so-called nodes)
+  Numpy array of shape (m, 2): section connectivity table (i-th raw gives node indices of the i-th section)
+  MultiLineString describing the clean skeleton
+
+  """
 
 
   ##############
@@ -375,6 +426,33 @@ def clean_skeleton(skls, mpol, ratio = 1):
 ################################################################################
 
 def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
+
+  """ Compute final skeleton by computing downstream distances, orienting sections from down- to upstream, connecting unconnected mini-skeletons if the ratio (mini-skeleton upstream distance / distance to main skeleton) is higher than a threshold value, and redefining the skeleton with a regular distance between points
+
+  Attention: the indices of the downstream tip points must be given by the user (only non-automated part of the process)
+
+  Required parameters:
+  coords (Numpy array of shape (n, 2)): coordinates of the tip and confluence points (so-called nodes)
+  sections (Numpy array of shape (m, 2)): section connectivity table (i-th raw gives node indices of the i-th section)
+  mls (MultiLineString): structure of multiple LineStrings describing the clean skeleton
+  mpol (MultiPolygon): structure of multiple Polygons describing channel edges
+  dns (list of integers): indices of the downstream nodes
+
+  Optional parameters:
+  ratio (float, default = 1): threshold ratio for unconnected mini-skeletons (mini-skeleton upstream distance / distance to main skeleton): mini-skeleton with smaller ratio are disregarded
+  dx (float, default = 1): distance (m) between two points of the final skeleton
+
+  Returns:
+  Numpy array of shape (n, 2): coordinates of the confluence points (so-called nodes)
+  Numpy array of shape (n): downstream distances of each node
+  Numpy array of shape (m, 2): section connectivity table (i-th raw gives node indices of the i-th section)
+  MultiLineString describing the final skeleton
+  Numpy array of shape (p, 2): coordinates of the skeleton points
+  Numpy array of shape (p): downstream distances of each skeleton point
+  Numpy array of shape (p): section index of each skeleton point
+
+  """
+
 
   ##########################################################################
   # compute array of downstream distances, change section orientations to  #
