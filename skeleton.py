@@ -39,7 +39,6 @@ def channel_edges(x, y, tri, creek, smin = 1e-6):
 
   """
 
-
   #################
   # channel edges #
   #################
@@ -507,6 +506,12 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
                             with_distance_to_downstream_edge = False)
       upstream_ext = np.max(dist_ext[np.isfinite(dist_ext)])
 
+      ####################################################################
+      # to be corrected in future versions:                              #
+      #   coords_ext, sections_ext and mls_ext should probably be used   #
+      #   to update coords, sections and mls                             #
+      ####################################################################
+
       # add mini-skeleton if ratio between upstream distance and distance to
       # main skeleton higher than threshold
       if upstream_ext / dist_skl[n_ext] < ratio:
@@ -562,6 +567,22 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
     dist0 = dist[n0]
     dist1 = dist[n1]
 
+    ########################################################################
+    # to be corrected in future versions:                                  #
+    #   for some reasons, some sections are still reversed                 #
+    #   (apparently from added disconnected mini-skeletons)                #
+    ########################################################################
+
+    # hack to handle the problem mentioned in the frame above
+    if dist0 > dist1:
+      n0 = sections[s, 1]
+      n1 = sections[s, 0]
+      dist0 = dist[n0]
+      dist1 = dist[n1]
+      ls_coords = list(lss[s].coords)
+      ls_coords.reverse()
+      lss[s] = LineString(ls_coords)
+
     # only keep main skeleton
     if np.isfinite(dist0) and np.isfinite(dist1):
 
@@ -577,11 +598,11 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       # last node
       coord1 = [coords[n1, 0], coords[n1, 1]]
       if coord1 in coords_new:
-        sections_new.append([coords_new.index(coord1)])
+        sections_new[-1].append(coords_new.index(coord1))
       else:
         coords_new.append(coord1)
         dist_new.append(dist1)
-        sections_new.append([len(coords_new) - 1])
+        sections_new[-1].append(len(coords_new) - 1)
 
 
       #######################
@@ -607,6 +628,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       if len(points) > 1:
         lss_new.append(LineString(points))
       else:
+        print(dist1 - dist0)
         print('\n warning in final_skeleton:')
         print('number of line strings in mls is smaller than number of sections because some sections are too small compared to dx \n')
 
@@ -630,6 +652,10 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
 def downstream_distance(coords, sections, mls, mpol, dns, \
                         with_distance_to_downstream_edge = True):
 
+  # initialize
+  coords_new = coords.copy()
+  sections_new = sections.copy()
+
   # convert multi-polygons into list of linear rings
   lrs = []
   for pol in mpol.geoms:
@@ -643,28 +669,28 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
   # initialize buffer array with downstream segments
   buf = []
   for dn in dns:
-    tmp = np.argwhere(sections == dn)[0]
+    tmp = np.argwhere(sections_new == dn)[0]
     buf.append(tmp[0])
   buf = np.array(buf)
 
   # array of section lengths
-  lens = np.zeros(sections.shape[0])
+  lens = np.zeros(sections_new.shape[0])
   for i in range(len(lens)):
     lens[i] = lss[i].length
 
   # initialize downstream distance array
-  dist = np.zeros(coords.shape[0]) + np.inf
+  dist = np.zeros(coords_new.shape[0]) + np.inf
   for i in range(len(buf)):
     s = buf[i]
     n0 = dns[i]
-    if n0 == sections[s, 0]:
-      n1 = sections[s, 1]
+    if n0 == sections_new[s, 0]:
+      n1 = sections_new[s, 1]
     else:
-      n1 = sections[s, 0]
+      n1 = sections_new[s, 0]
 
     # downstream distance of tip point is the distance to channel edges
     if with_distance_to_downstream_edge:
-      p0 = Point(coords[n0, 0], coords[n0, 1])
+      p0 = Point(coords_new[n0, 0], coords_new[n0, 1])
       for lr in lrs:
         dist[n0] = np.minimum(dist[n0], p0.distance(lr))
     else:
@@ -681,12 +707,12 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
 
     # for each section in the buffer array
     for s in buf:
-      n0 = sections[s, 0]
-      n1 = sections[s, 1]
+      n0 = sections_new[s, 0]
+      n1 = sections_new[s, 1]
 
       # look for connected sections
       for n in [n0, n1]:
-        ind = np.where(sections == n)
+        ind = np.where(sections_new == n)
         for nc in ind[0]:
           if nc != n:
             con.append(nc)
@@ -699,8 +725,8 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
 
     # for each section in the connected array
     for s in con:
-      n0 = sections[s, 0]
-      n1 = sections[s, 1]
+      n0 = sections_new[s, 0]
+      n1 = sections_new[s, 1]
 
       # update downstream distances
       dist0 = dist[n1] + lens[s]
@@ -713,14 +739,14 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
         buf.append(s)
 
     # update section and line string orientation
-    for s in range(sections.shape[0]):
-      n0 = sections[s, 0]
-      n1 = sections[s, 1]
+    for s in range(sections_new.shape[0]):
+      n0 = sections_new[s, 0]
+      n1 = sections_new[s, 1]
       dist0 = dist[n0]
       dist1 = dist[n1]
       if dist1 < dist0:
-        sections[s, 0] = n1
-        sections[s, 1] = n0
+        sections_new[s, 0] = n1
+        sections_new[s, 1] = n0
         ls_coords = list(lss[s].coords)
         ls_coords.reverse()
         lss[s] = LineString(ls_coords)
@@ -737,14 +763,14 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
   trash = []
 
   # convert arrays into lists
-  coords = coords.tolist()
+  coords_new = coords_new.tolist()
   dist = dist.tolist()
-  sections = sections.tolist()
+  sections_new = sections_new.tolist()
 
   # for each section
-  for s in range(len(sections)):
-    n0 = sections[s][0]
-    n1 = sections[s][1]
+  for s in range(len(sections_new)):
+    n0 = sections_new[s][0]
+    n1 = sections_new[s][1]
 
     # if section length higher than the difference of downstream distances
     if lens[s] - np.abs(dist[n1] - dist[n0]) > 1e-6:
@@ -759,19 +785,19 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
       for i in range(len(lss[s].coords)):
         pi = Point(lss[s].coords[i])
         if lss[s].project(pi) == dist_eq - dist[n0]:
-          coords.append([p_eq.x, p_eq.y])
+          coords_new.append([p_eq.x, p_eq.y])
           dist.append(dist_eq)
-          sections.append([n0, len(coords) - 1])
-          sections.append([n1, len(coords) - 1])
+          sections_new.append([n0, len(coords_new) - 1])
+          sections_new.append([n1, len(coords_new) - 1])
           lss.append(LineString(lss[s].coords[:i + 1]))
           lss.append(LineString(lss[s].coords[i:]))
           trash.append(s)
           break
         if lss[s].project(pi) > dist_eq - dist[n0]:
-          coords.append([p_eq.x, p_eq.y])
+          coords_new.append([p_eq.x, p_eq.y])
           dist.append(dist_eq)
-          sections.append([n0, len(coords) - 1])
-          sections.append([n1, len(coords) - 1])
+          sections_new.append([n0, len(coords_new) - 1])
+          sections_new.append([n1, len(coords_new) - 1])
           lss.append(LineString(lss[s].coords[:i] + [(p_eq.x, p_eq.y)]))
           lss.append(LineString([(p_eq.x, p_eq.y)] + lss[s].coords[i:]))
           trash.append(s)
@@ -780,15 +806,15 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
   # delete split sections and line strings
   trash.reverse()
   for s in trash:
-    del sections[s]
+    del sections_new[s]
     del lss[s]
 
   # convert list into arrays
-  coords = np.array(coords)
+  coords_new = np.array(coords_new)
   dist = np.array(dist)
-  sections = np.array(sections)
+  sections_new = np.array(sections_new)
 
   # convert list of section line strings into multi-line string
-  mls = MultiLineString(lss)
+  mls_new = MultiLineString(lss)
 
-  return coords, dist, sections, mls
+  return coords_new, dist, sections_new, mls_new
