@@ -11,6 +11,7 @@ Author: Olivier Gourgue
 import numpy as np
 import os
 import scipy.linalg
+from shapely.geometry import Polygon, MultiPolygon
 import sys
 
 
@@ -450,3 +451,121 @@ def import_mini_cloud(filename):
   file.close()
 
   return cloud
+
+
+
+################################################################################
+# channel edges ################################################################
+################################################################################
+
+def channel_edges(x, y, tri, creek, smin = 1e-6):
+
+  """ Compute the channel edges of a tidal channel network based on a boolean field determining which nodes of a triangular mesh are within a creek or not
+
+  Required parameters:
+  x, y (NumPy arrays of shape (n)) grid node coordinates
+  tri (NumPy array of shape (m, 3): triangle connectivity table
+  creek (NumPy array of shape (n) and type logical): True if creek, False otherwise
+
+  Optional parameters:
+  smin (float, default 1e-6): minimum polygon surface area (m^2); polygons with smaller surface area will be disregarded
+
+  Returns:
+  MultiPolygon: structure of multiple polygons describing channel edges
+
+  """
+
+  #################
+  # channel edges #
+  #################
+
+  # triangles with exactly 2 creek nodes
+  ind = (np.sum(creek[tri], axis = 1) == 2)
+  tri2 = tri[ind, :]
+
+  # segments of channel edges
+  seg = np.zeros((tri2.shape[0], 2), dtype = int)
+  for i in range(3):
+    ind = creek[tri2[:, i]] == 0
+    seg[ind, 0] = tri2[ind, np.mod(i + 1, 3)]
+    seg[ind, 1] = tri2[ind, np.mod(i + 2, 3)]
+
+  # channel edge lines (sorting edges)
+  lines = []
+  while len(seg) > 0:
+    tmp = [seg[0, 0], seg[0, 1]]
+    seg = np.delete(seg, 0, axis = 0)
+    while tmp[0] != tmp[-1]:
+      out = np.where(seg == tmp[-1])
+      i = out[0][0]
+      j = out[1][0]
+      tmp.append(seg[i][np.mod(j + 1, 2)])
+      seg = np.delete(seg, i, axis = 0)
+    lines.append(tmp)
+
+
+  ################
+  # raw polygons #
+  ################
+
+  pols = []
+  for line in lines:
+    xy = []
+    for i in range(len(line)):
+      xy.append((x[line[i]], y[line[i]]))
+    pols.append(Polygon(xy))
+
+
+  #######################################
+  # exclude small-surface-area polygons #
+  #######################################
+
+  inds = []
+  for i in range(len(pols)):
+    if pols[i].area < smin:
+      inds.append(i)
+  inds.reverse()
+  for ind in inds:
+    del pols[ind]
+
+
+  #################################
+  # include interiors in polygons #
+  #################################
+
+  # sort polygons by surface areas
+  s = [pol.area for pol in pols]
+  inds = np.flip(np.argsort(s))
+  pols = [pols[ind] for ind in inds]
+
+  # insert interiors one by one (to avoid inserting interiors of interiors)
+  stop_while = False
+  while not stop_while:
+    stop_for = False
+    for i in range(1, len(pols)):
+      for j in range(i):
+        if pols[i].within(pols[j]):
+
+          # update polygon j with interior i
+          shell = pols[j].exterior.coords
+          holes = []
+          for k in range(len(pols[j].interiors)):
+            holes.append(pols[j].interiors[k].coords)
+          holes.append(pols[i].exterior.coords)
+          pols[j] = Polygon(shell = shell, holes = holes)
+
+          # delete polygon i
+          del pols[i]
+
+          # stop double for loop
+          stop_for = True
+          break
+      if stop_for:
+        break
+
+    # stop while loop
+    if i == len(pols) - 1 and j == i - 1:
+      stop_while = True
+
+
+  return MultiPolygon(pols)
