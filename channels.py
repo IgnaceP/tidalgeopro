@@ -1,6 +1,6 @@
-""" Boolean Creek
+""" Channels
 
-This module allows to extract tidal creeks from elevation maps, based on median neighborhood analysis, inspired by the first step of the multi-step approach by Liu et al. (2015, dx.doi.org/10.1016/j.jhydrol.2015.05.058)
+This module allows to extract tidal channels from elevation maps and polygons describing the channel edges (limited to triangular grids for now)
 
 Author: Olivier Gourgue
        (University of Antwerp, Belgium & Boston University, MA, United States)
@@ -17,20 +17,20 @@ import sys
 
 
 ################################################################################
-# compute boolean creek ########################################################
+# boolean channel ##############################################################
 ################################################################################
 
-def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
-                          combine_radius_logical = True, \
-                          combine_time_logical = False, \
-                          linear_detrend_logical = False):
+def boolean_channel(x, y, z, hc, radius = None, cloud_fn = None, \
+                    combine_radius_logical = True, \
+                    combine_time_logical = False, \
+                    linear_detrend_logical = False):
 
-  """ Extract tidal creeks from elevation maps, based on median neighborhood analysis, inspired by the first step of the multi-step approach by Liu et al. (2015, dx.doi.org/10.1016/j.jhydrol.2015.05.058)
+  """ Extract tidal channels from elevation maps, based on median neighborhood analysis, inspired by the first step of the multi-step approach by Liu et al. (2015, dx.doi.org/10.1016/j.jhydrol.2015.05.058)
 
   Required parameters:
   x, y (NumPy arrays of shape (n)): grid node coordinates
   z (NumPy array of shape (n) or (n, m): bottom elevation at grid nodes (axis 0) and different time steps (axis 1)
-  hc (float): threshold residual (median(z) - z) above which the node is considered as within a creek
+  hc (float): threshold residual (median(z) - z) above which the node is considered as within a channel
 
   Optional parameters:
   radius (float or list of p floats): mini-cloud radius(-ii)
@@ -40,7 +40,7 @@ def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
   linear_detrend_logical (boolean, default = False): combine median analysis results with a median analysis applied to a linearly detrend elevation within each mini-cloud (experimental, not tested in depth and very slow for large datasets)
 
   Returns:
-  NumPy array of shape (n) or (n, p) and type logical: True if creek, False otherwise
+  NumPy array of shape (n) or (n, p) and type logical: True if channel, False otherwise
 
   """
 
@@ -86,14 +86,14 @@ def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
   else:
     nt = z.shape[1]
 
-  # initialize boolean creek
+  # initialize boolean channel
   if combine_radius_logical:
     if combine_time_logical:
-      creek = np.zeros(nnode)
+      channel = np.zeros(nnode)
     else:
-      creek = np.zeros(z.shape)
+      channel = np.zeros(z.shape)
   else:
-    creek = []
+    channel = []
 
 
   # for each radius
@@ -113,14 +113,14 @@ def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
 
       # or compute & export mini-cloud
       else:
-        cloud = compute_mini_cloud_radius(x, y, radius[i])
+        cloud = mini_cloud_radius(x, y, radius[i])
         export_mini_cloud(cloud, cloud_fn[i])
 
     # if list of mini-cloud file names is not given
     elif cloud_fn is None:
 
       # compute mini-cloud
-      cloud = compute_mini_cloud_radius(x, y, radius[i])
+      cloud = mini_cloud_radius(x, y, radius[i])
 
     # if list of radius is not given
     elif radius is None:
@@ -129,9 +129,9 @@ def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
       cloud = import_mini_cloud(cloud_fn[i])
 
 
-    #########################
-    # compute boolean creek #
-    #########################
+    ###########################
+    # compute boolean channel #
+    ###########################
 
     # compute median
     median = np.zeros(z.shape)
@@ -141,13 +141,13 @@ def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
     # compute residual
     res = median - z
 
-    # compute boolean creek
+    # compute boolean channel
     tmp_1 = (res > hc)
 
 
-    #################################
-    # compute detrent boolean creek #
-    #################################
+    ###################################
+    # compute detrent boolean channel #
+    ###################################
 
     if linear_detrend_logical:
 
@@ -200,40 +200,40 @@ def compute_boolean_creek(x, y, z, hc, radius = None, cloud_fn = None, \
       # compute residual
       res = median - z
 
-      # compute boolean creek
+      # compute boolean channel
       tmp_2 = (res > hc)
 
     else:
       tmp_2 = np.zeros(z.shape, dtype = bool)
 
 
-    ##########################
-    # combine boolean creeks #
-    ##########################
+    ############################
+    # combine boolean channels #
+    ############################
 
-    # compute boolean creek
+    # compute boolean channel
     if combine_radius_logical:
       if combine_time_logical:
-        creek += np.sum(tmp_1 + tmp_2, axis = 1)
+        channel += np.sum(tmp_1 + tmp_2, axis = 1)
       else:
-        creek += tmp_1 + tmp_2
+        channel += tmp_1 + tmp_2
     else:
-      creek.append(tmp_1 + tmp_2)
+      channel.append(tmp_1 + tmp_2)
 
 
   # no list if only one variable
   if nr == 1:
-    creek = creek[0]
+    channel = channel[0]
 
-  # return boolean creek
-  return creek
+  # return boolean channel
+  return channel
 
 
 ################################################################################
 # compute mini cloud ###########################################################
 ################################################################################
 
-def compute_mini_cloud(x, y, tri):
+def mini_cloud(x, y, tri):
 
   """ Compute mini-cloud of each node of a trinagular grid, as the list of all neighboring nodes sharing at least one triangle with it
 
@@ -293,7 +293,7 @@ def compute_mini_cloud(x, y, tri):
 ################################################################################
 
 
-def compute_mini_cloud_radius(x, y, r, nmax = None):
+def mini_cloud_radius(x, y, r, nmax = None):
 
   """ Compute mini-cloud of each point of a point cloud, as the list of all neighboring points in a certain radius
 
@@ -458,14 +458,14 @@ def import_mini_cloud(filename):
 # channel edges ################################################################
 ################################################################################
 
-def channel_edges(x, y, tri, creek, smin = 1e-6):
+def channel_edges(x, y, tri, channel, smin = 1e-6):
 
-  """ Compute the channel edges of a tidal channel network based on a boolean field determining which nodes of a triangular mesh are within a creek or not
+  """ Compute the channel edges of a tidal channel network based on a boolean field determining which nodes of a triangular mesh are within a channel or not
 
   Required parameters:
   x, y (NumPy arrays of shape (n)) grid node coordinates
   tri (NumPy array of shape (m, 3): triangle connectivity table
-  creek (NumPy array of shape (n) and type logical): True if creek, False otherwise
+  channel (NumPy array of shape (n) and type logical): True if within channel, False otherwise
 
   Optional parameters:
   smin (float, default 1e-6): minimum polygon surface area (m^2); polygons with smaller surface area will be disregarded
@@ -475,18 +475,23 @@ def channel_edges(x, y, tri, creek, smin = 1e-6):
 
   """
 
+  ########################################################################
+  # todo: the method works for year 50 of simulation HPP 1, but seems to #
+  # fail in some other cases                                             #
+  ########################################################################
+
   #################
   # channel edges #
   #################
 
-  # triangles with exactly 2 creek nodes
-  ind = (np.sum(creek[tri], axis = 1) == 2)
+  # triangles with exactly 2 channel nodes
+  ind = (np.sum(channel[tri], axis = 1) == 2)
   tri2 = tri[ind, :]
 
   # segments of channel edges
   seg = np.zeros((tri2.shape[0], 2), dtype = int)
   for i in range(3):
-    ind = creek[tri2[:, i]] == 0
+    ind = channel[tri2[:, i]] == 0
     seg[ind, 0] = tri2[ind, np.mod(i + 1, 3)]
     seg[ind, 1] = tri2[ind, np.mod(i + 2, 3)]
 
