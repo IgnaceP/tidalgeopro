@@ -20,10 +20,10 @@ import sys
 # boolean channel ##############################################################
 ################################################################################
 
-def boolean_channel(x, y, z, hc, radius = None, cloud_fn = None, \
-                    combine_radius_logical = True, \
-                    combine_time_logical = False, \
-                    linear_detrend_logical = False):
+def boolean_channels(x, y, z, hc, radius = None, cloud_fn = None, \
+                     combine_radius_logical = True, \
+                     combine_time_logical = False, \
+                     linear_detrend_logical = False):
 
   """ Extract tidal channels from elevation maps, based on median neighborhood analysis, inspired by the first step of the multi-step approach by Liu et al. (2015, dx.doi.org/10.1016/j.jhydrol.2015.05.058)
 
