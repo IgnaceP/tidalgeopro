@@ -34,7 +34,7 @@ def raw_skeleton(mpol):
 
   # compute and return list of raw skeletons (one for each polygon)
   skls = []
-  for pol in pols:
+  for pol in mpol.geoms:
     skls.append(Centerline(pol))
   return skls
 
