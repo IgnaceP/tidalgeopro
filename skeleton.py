@@ -9,7 +9,7 @@ Author: Olivier Gourgue
 
 
 import numpy as np
-from shapely.geometry import Point, LineString, MultiLineString
+from shapely.geometry import Point, LineString, MultiLineString, MultiPolygon
 from shapely.ops import nearest_points
 
 from centerline.geometry import Centerline
@@ -296,7 +296,16 @@ def clean_skeleton(skls, mpol, ratio = 1):
   # node coordinates
   coords = coords[nodes, :]
 
-  return coords, sections, mls
+  # channel edges
+  pols = []
+  for pol in mpol.geoms:
+    for ls in mls.geoms:
+      if pol.contains(ls):
+        pols.append(pol)
+        break
+  mpol = MultiPolygon(pols)
+
+  return coords, sections, mls, mpol
 
 
 
