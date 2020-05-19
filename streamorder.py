@@ -184,6 +184,7 @@ def streamOrder(conn, downstream_node = 0):
         # loop over all nodes
         for i in range(0, n_nodes):
             # a node shouldn't have a downstream segment with order 1
+
             # the downstream node has no donwtream segment so it should not be ordered
             # we can only order a segment if it is connected to a node which is connected to two already ordered segments
             if nodes[i] == 0 and\
