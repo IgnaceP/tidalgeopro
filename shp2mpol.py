@@ -64,7 +64,6 @@ def shp2Mpol(fn, print_coordinate_system = False, project_to_epsg = False):
         # if indicated, transform all coordinates to UTM coordinates
         if project_to_epsg:
             ex = project(coor[0], crs.to_epsg(), project_to_epsg)
-
             inner = []
 
             if len(coor) > 1:

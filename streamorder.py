@@ -129,7 +129,6 @@ def streamOrder(conn, downstream_nodes = 0):
                 exit()
 
 
-
     ############################
     ### first order segments ###
     ############################
@@ -231,10 +230,10 @@ def streamOrder(conn, downstream_nodes = 0):
         if np.any(loop_nodes == n1) and np.any(loop_nodes == n2):
             loop_segs[s] = 1
 
-
     ############################
     ### Assign Stream Orders ###
     ############################
+
 
     # assign orders untill all segments are ordered but the fictional segments added to create a loop between the downstream nodes
     while np.min(segs[0:-fict_segs]) == 0:
