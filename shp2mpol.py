@@ -1,46 +1,47 @@
+""" Shapefile 2 Shapely MultiPolygon
+
+This module loads a shapefile to a shapefile MultiPolygon
+
+Author: Ignace Pelckmans
+       (University of Antwerp, Belgium)
+
+"""
+
+
 from osgeo import ogr
 import json
 from shapely.geometry import Polygon as shPol
 from shapely.geometry import MultiPolygon as shMPol
 import utm
 import numpy as np
+from pyproj import CRS
+from pol2pol import project
 
-def WGS842UTM(XY, utm_n, utm_l):
-    """Function to transform a list of lat lon coordinates in WGS84 to a utm system
-    :param XY: (Required) list of coordinate pairs or 2d numpy array
-    :param utm_n: (Required) UTM zone number
-    :param utm_l: (Required) UTM zone letter
-    :return: list of coordinate pairs of projected coordinates
+
+def shp2Mpol(fn, print_coordinate_system = False, project_to_epsg = False):
     """
+    Function to load and (re)project one or multiple polygons from a ESRI shapefile
+    ! the shapefile should only have one polygon per feature !
 
-    # initialize empty list to store new coordinates
-    XY_utm = []
+    author: Ignace Pelckmans
 
-    # loop over coordinate pairs
-    for lonlat in XY:
-        # retrieve lat and lon
-        lon, lat = lonlat[0:2]
-        # transform lat and lon to UTM coordinate one by one
-        utmxy = utm.from_latlon(lat, lon, utm_n, utm_l)
-        # append to new list
-        XY_utm.append(utmxy[0:2])
+    Args:
+        fn: (Required) string of .shp file directory
+        print_coordinate_system: (Optional, defaults to False) True/False to print the original EPSG code
+        project_to_epsg: (Optional, defaults to False) False/int representing the epsg code of the desired projection, indicate False if the data should not be reprojected
 
-    return XY_utm
-
-def shp2mpol(fn, print_coordinate_system = False, project_to_UTM = False):
-    """ Function to load an ESRI shapefile and transform to shapely MPol
-    :param fn:(Required) File path directory
-    :param print_coordinate_system: (Optional) True/False to print the original coordinate system of the loaded loadPolygonFromShapefile
-    :param project_to_UTM: (Optional) string with UTM number and letter (for instance, '17M') of the desired UTM zone
-    :return: a shapely (Multi)Polygon
+    Returns:
+        a shapely (Multi)Polygon
     """
 
     # load shapefile with the ogr toolbox of osgeo
     file = ogr.Open(fn)
     shape = file.GetLayer(0)
-    if print_coordinate_system:
-        print(f'The Coordinate system is: {shape.GetSpatialRef()}')
 
+    epsg = int(shape.GetSpatialRef().ExportToPrettyWkt().splitlines()[-1].split('"')[3])
+    crs = CRS.from_epsg(epsg)
+    if print_coordinate_system:
+        print("The EPSG code of the coordinate system is: %d" % (crs.to_epsg()))
     # get number of polygons in shapefile
     n_features = shape.GetFeatureCount()
 
@@ -61,17 +62,14 @@ def shp2mpol(fn, print_coordinate_system = False, project_to_UTM = False):
         coor = feature_JSON['geometry']['coordinates']
 
         # if indicated, transform all coordinates to UTM coordinates
-        if project_to_UTM:
-            utm_n = int(project_to_UTM[:2])
-            utm_l = project_to_UTM[2]
-
-            ex = WGS842UTM(coor[0], utm_n, utm_l)
-
+        if project_to_epsg:
+            ex = project(coor[0], crs.to_epsg(), project_to_epsg)
             inner = []
 
             if len(coor) > 1:
                 for i in coor[1:]:
-                    inner.append(WGS842UTM(i, utm_n, utm_l))
+                    if 2 <= np.shape(np.asarray(i))[1] <= 3:
+                        inner.append(project(i, crs.to_epsg(), epsg))
 
         else: ex = coor[0]; inner = coor[1:]
 
