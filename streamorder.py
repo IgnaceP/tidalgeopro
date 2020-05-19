@@ -40,12 +40,12 @@ def findPaths(conn, downstream_node = 0):
                 # a path should meet the following conditions:
                 # it does not simply returns to the previous point
                 # therefore, it won't catch single loops
-                if np.unique(new_path[-3:]).shape == new_path[-3:].shape and\
                 # it can only travel in between connected nodes per step
-                np.sum(np.all((conn_sorted == np.sort(new_path[-2:])), axis = 1)) > 0 and\
                 # it can only pass by a point twice (to avoid endless looping)
-                max(np.bincount(new_path)) < 3 and \
                 # the path is not already listed
+                if np.unique(new_path[-3:]).shape == new_path[-3:].shape and\
+                np.sum(np.all((conn_sorted == np.sort(new_path[-2:])), axis = 1)) > 0 and\
+                max(np.bincount(new_path)) < 3 and \
                 not list(new_path) in [list(item) for item in paths] and\
                 not list(new_path) in [list(item) for item in new_paths]:
                     new_paths.append(new_path)
@@ -184,10 +184,11 @@ def streamOrder(conn, downstream_node = 0):
         # loop over all nodes
         for i in range(0, n_nodes):
             # a node shouldn't have a downstream segment with order 1
-            if nodes[i] == 0 and\
+
             # the downstream node has no donwtream segment so it should not be ordered
-            i != downstream_node and \
             # we can only order a segment if it is connected to a node which is connected to two already ordered segments
+            if nodes[i] == 0 and\
+            i != downstream_node and \
             np.count_nonzero(segs[conn_nodes[i]] == 0) == 1:
                 # loop over all segments connected to the node
                 for s in conn_nodes[i]:
