@@ -59,6 +59,7 @@ def clean_skeleton(skls, mpol, ratio = 1):
   Numpy array of shape (n, 2): coordinates of the tip and confluence points (so-called nodes)
   Numpy array of shape (m, 2): section connectivity table (i-th raw gives node indices of the i-th section)
   MultiLineString describing the clean skeleton
+  MultiPolygon describing the clean channel edges
 
   """
 
@@ -338,6 +339,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
   Numpy array of shape (p, 2): coordinates of the skeleton points
   Numpy array of shape (p): downstream distances of each skeleton point
   Numpy array of shape (p): section index of each skeleton point
+  MultiPolygon describing the final channel edges
 
   """
 
@@ -530,7 +532,16 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
   p_dist = np.array(p_dist)
   p_sections = np.array(p_sections)
 
-  return coords, dist, sections, mls, p_coords, p_dist, p_sections
+  # channel edges
+  pols = []
+  for pol in mpol.geoms:
+    for ls in mls.geoms:
+      if pol.contains(ls):
+        pols.append(pol)
+        break
+  mpol = MultiPolygon(pols)
+
+  return coords, dist, sections, mls, p_coords, p_dist, p_sections, mpol
 
 
 
