@@ -9,7 +9,6 @@ Author: Ignace Pelckmans
 """
 
 import numpy as np
-import multiprocessing as mp
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, \
                              MultiPolygon
 
