@@ -9,6 +9,7 @@ Author: Ignace Pelckmans
 """
 
 import numpy as np
+import multiprocessing as mp
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, \
                              MultiPolygon
 
@@ -180,17 +181,17 @@ def channelWidthForOnePoint(xy, p):
 
     return channel_width
 
-def channelWidthNodes(xy, nodes, multiprocessing_flag = False):
+def channelWidth(xy, mls, multiprocessing_flag = False):
     """
     Function to calculate the channel width at given nodes
 
     Args:
         xy: (Required) shapely (Multi)Polygon or Numpy array of dimensions n x 2 storing the vertices coordinates representing the channel
-        nodes: (Required) Numpy array of dimensions n x 2 storing the node coordinates
+        nodes: (Required) Numpy array or shapely Multilines of dimensions n x 2 storing the node coordinates
         multiprocessing_flag: (Optional) False/number flag to indicate whether to use multiprocessing. #cpu's is the total number - 2
 
     Returns:
-        Numpy Array with dimensions n x 1 with the channel width at the nodes (unit depends on the coordinate system, in case of UTM it is meter)
+        Numpy Array with dimensions n x 3 with the channel width (third column) at the given coordinates (first two columns) (unit depends on the coordinate system, in case of UTM it is meter)
     """
 
     # make sure it can handle pol being a list of coors, shapely MultiPolygon or a shapely Polygon
@@ -215,6 +216,15 @@ def channelWidthNodes(xy, nodes, multiprocessing_flag = False):
     else:
         pass
 
+    # make sure it can handle a multilinestring or a numpy array for the centerline nodes
+    if type(mls) == MultiLineString:
+        nodes = np.asarray([0,0])
+        for ls in mls:
+            coor = np.rot90(ls.xy)
+            nodes = np.vstack((nodes, coor))
+        nodes = nodes[1:,:]
+    else:
+        nodes = mls
 
     # in the case of multiprocessing, start a pool where each member calculates the width at a node
     if multiprocessing_flag:
@@ -229,4 +239,8 @@ def channelWidthNodes(xy, nodes, multiprocessing_flag = False):
         for i in range(np.shape(nodes)[0]):
             widths[i] = channelWidthForOnePoint(xy, nodes[i,:])
 
-    return widths
+    coor_and_widths = np.empty([np.shape(nodes)[0], 3])
+    coor_and_widths[:,0:2] = nodes
+    coor_and_widths[:,2] = widths
+
+    return coor_and_widths
