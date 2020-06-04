@@ -4,6 +4,7 @@ Script to test the tidealgeopro module based from a .shp file
 author: Ignace Pelckmans
             (University of Antwerp, Belgium)
 
+!!! issue to be solved: at the moment the final skeleton is not working !!!
 """
 #--------------------#
 #-- import modules --#
@@ -84,6 +85,12 @@ arr, TL = interpChannelWidth(mpol, widths, res = 5, save_as_geotiff = '/home/ign
 #-----------------------#
 #-- Save as txt files --#
 #-----------------------#
+
+# if necessary, create new directories
+if not os.path.isdir('./txt_files/'):
+    os.mkdir('./txt_files/')
+if not os.path.isdir('./figures/'):
+    os.mkdir('./figures/')
 
 # save skeleton
 np.savetxt('./txt_files/skeleton_node_coords.txt', coords)
