@@ -71,7 +71,7 @@ def virtual_dem(x, y, skl_coords, skl_dist):
 ################################################################################
 
 def metrics(x, y, skl_coords, skl_dist, mask = None, tiff = 'vdem.tiff',
-            remove_tiff = True):
+            remove_tiff = True, resolve_flats = True):
 
   """ Calculate watershed areas and upstream mainstream lengths along the skeleton of a tidal channel network.
 
@@ -154,11 +154,12 @@ def metrics(x, y, skl_coords, skl_dist, mask = None, tiff = 'vdem.tiff',
     indy = np.argwhere(grid_skl_coords[i, 1] == y)[0]
     grid_dist[indx, indy] = grid_skl_dist[i]
 
-  # resolve flats
-  grid.resolve_flats(data = 'vdem', out_name = 'inflated_vdem')
-
   # flow direction
-  grid.flowdir(data = 'inflated_vdem', out_name = 'dir', routing = 'dinf')
+  if resolve_flats:
+    grid.resolve_flats(data = 'vdem', out_name = 'inflated_vdem')
+    grid.flowdir(data = 'inflated_vdem', out_name = 'dir', routing = 'dinf')
+  else:
+    grid.flowdir(data = 'vdem', out_name = 'dir', routing = 'dinf')
 
   for i in range(grid_skl_coords.shape[0]):
 
