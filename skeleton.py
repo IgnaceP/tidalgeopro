@@ -449,6 +449,9 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
   p_dist = []
   p_sections = []
 
+  # initialize boolean used for avoiding duplicate printouts
+  already_printed = False
+
   # for each old section
   for s in range(len(lss)):
 
@@ -519,9 +522,10 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       if len(points) > 1:
         lss_new.append(LineString(points))
       else:
-        print(dist1 - dist0)
-        print('\n warning in final_skeleton:')
-        print('number of line strings in mls is smaller than number of sections because some sections are too small compared to dx \n')
+        lss_new.append(LineString())
+        if not already_printed:
+          print('warning: some empty line strings in final skeleton')
+          already_printed = True
 
   # update arrays and multi-line string
   coords = np.array(coords_new)
