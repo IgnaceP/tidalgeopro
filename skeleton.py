@@ -73,6 +73,12 @@ def clean_skeleton(skls, mpol, ratio = 1):
 
   """
 
+  print('')
+  print('cleaning the raw skeleton can be a long process...')
+
+  # start timer
+  start = time.time()
+
 
   ##############
   # initialize #
@@ -316,6 +322,11 @@ def clean_skeleton(skls, mpol, ratio = 1):
         break
   mpol = geometry.MultiPolygon(pols)
 
+  # print time
+  print('clean skeleton computed in %.2f seconds' % (time.time() - start))
+  print('')
+
+  # return
   return coords, sections, mls, mpol
 
 
