@@ -70,10 +70,10 @@ def virtual_dem(x, y, skl_coords, skl_dist):
 # watershed metrics ############################################################
 ################################################################################
 
-def metrics(x, y, skl_coords, skl_dist, mask = None, tiff = 'vdem.tiff',
-            remove_tiff = True, resolve_flats = True):
+def metrics(x, y, skl_coords, skl_dist, mask = None, z = None, platforms = None,
+            tiff = 'vdem.tiff', remove_tiff = True, resolve_flats = True):
 
-  """ Calculate watershed areas and upstream mainstream lengths along the skeleton of a tidal channel network.
+  """ Calculate watershed areas, upstream mainstream lengths and mean watershed platform elevations along the skeleton of a tidal channel network.
 
   Required parameters:
   x (Numpy array of shape (nx)): x-coordinates
@@ -83,12 +83,15 @@ def metrics(x, y, skl_coords, skl_dist, mask = None, tiff = 'vdem.tiff',
 
   Optional parameters:
   mask (Numpy array of shape(nx, ny), default = None): defines which grid cells are outside the domain of interest; if None, the domain of interest is the entire grid
+  z (Numpy array of shape(nx, ny), default = None): bottom elevation; if None, mean watershed platform elevation is not computed
+  platforms (Numpy array of shape(nx, ny), default = None): defines which grid cells are platforms; if None, mean watershed platform elevation is not computed
   tiff (string, default = 'vdem.tiff'): geo tiff file name where the virtual DEM is stored before being imported by pysheds functions
   remove_tiff (boolean, default = True): if True the geo tiff file is removed at the end of the calculation
 
   Returns:
   Numpy array of shape (m): watershed area along the skeleton
   Numpy array of shape (m): upstream mainstream length along the skeleton
+  Numpy array of shape (m): mean watershed platform elevation along the skeleton (only if z and platforms are not None)
 
   """
 
@@ -146,6 +149,8 @@ def metrics(x, y, skl_coords, skl_dist, mask = None, tiff = 'vdem.tiff',
   # initialize variables
   grid_skl_watershed_area = np.zeros(grid_skl_coords.shape[0])
   grid_skl_upstream_length = np.zeros(grid_skl_coords.shape[0])
+  if z is not None and platforms is not None:
+    grid_skl_platform_elevation = np.zeros(grid_skl_coords.shape[0]) + np.nan
 
   # downstream length on the structured grid (nan values outside skeleton cells)
   grid_dist = np.zeros(vdem.shape) + np.nan
@@ -188,10 +193,20 @@ def metrics(x, y, skl_coords, skl_dist, mask = None, tiff = 'vdem.tiff',
     grid_skl_upstream_length[i] = (np.nanmax(grid_dist[catch]) -
                                    grid_skl_dist[i])
 
+    # mean watershed platform elevation
+    if z is not None and platforms is not None:
+      if np.any(platforms * catch):
+        grid_skl_platform_elevation[i] = np.mean(z[platforms * catch])
+
   # project variables on final skeleton
   skl_watershed_area = grid_skl_watershed_area[grid_skl_inverse]
   skl_upstream_length = grid_skl_upstream_length[grid_skl_inverse]
+  if z is not None and platforms is not None:
+    skl_platform_elevation = grid_skl_platform_elevation[grid_skl_inverse]
 
-  return skl_watershed_area, skl_upstream_length
+  if z is None or platforms is None:
+    return skl_watershed_area, skl_upstream_length
+  else:
+    return skl_watershed_area, skl_upstream_length, skl_platform_elevation
 
 
