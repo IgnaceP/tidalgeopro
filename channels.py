@@ -7,13 +7,13 @@ Author: Olivier Gourgue
 
 """
 
-
+import matplotlib.pyplot as plt
 import numpy as np
 import os
-import scipy.linalg
-from shapely.geometry import Polygon, MultiPolygon
 import sys
 
+from scipy import linalg
+from shapely import geometry
 
 
 ################################################################################
@@ -184,7 +184,7 @@ def boolean_channels(x, y, z, hc, radius = None, cloud_fn = None, \
         b[:] = zcloud
 
         # solve linear system
-        coef, _, _, _ = scipy.linalg.lstsq(a, b, lapack_driver = 'gelsy')
+        coef, _, _, _ = linalg.lstsq(a, b, lapack_driver = 'gelsy')
 
         # linear detrent elevation
         if nt == 1:
@@ -475,6 +475,93 @@ def channel_edges(x, y, tri, channel, smin = 1e-6):
 
   """
 
+  #########################
+  # compute channel edges #
+  #########################
+
+  TriContourSet = plt.tricontour(x, y, tri, channel.astype(int), levels = [.5])
+
+
+  ###############################
+  # convert to shapely polygons #
+  ###############################
+
+  pols = []
+  for contour_path in TriContourSet.collections[0].get_paths():
+
+    xy = contour_path.vertices
+    coords = []
+    for i in range(xy.shape[0]):
+      coords.append((xy[i, 0], xy[i, 1]))
+    pols.append(geometry.Polygon(coords))
+
+
+  #################################
+  # include interiors in polygons #
+  #################################
+
+  # sort polygons by surface areas
+  s = [pol.area for pol in pols]
+  inds = np.flip(np.argsort(s))
+  pols = [pols[ind] for ind in inds]
+
+  # insert interiors one by one (to avoid inserting interiors of interiors)
+  stop_while = False
+  while not stop_while:
+    stop_for = False
+    for i in range(1, len(pols)):
+      for j in range(i):
+        if pols[i].within(pols[j]):
+          # update polygon j with interior i
+          shell = pols[j].exterior.coords
+          holes = []
+          for k in range(len(pols[j].interiors)):
+            holes.append(pols[j].interiors[k].coords)
+          holes.append(pols[i].exterior.coords)
+          pols[j] = geometry.Polygon(shell = shell, holes = holes)
+          # delete polygon i
+          del pols[i]
+          # stop double for-loop
+          stop_for = True
+          break
+      if stop_for:
+        break
+    # stop while-loop
+    if i == len(pols) - 1 and j == i - 1:
+      stop_while = True
+
+  return geometry.MultiPolygon(pols)
+
+
+
+  """
+      # Create the polygon for this intensity level
+      # The first polygon in the path is the main one, the following ones are "holes"
+      for ncp,cp in enumerate(contour_path.to_polygons()):
+          x = cp[:,0]
+          y = cp[:,1]
+          new_shape = geometry.Polygon([(i[0], i[1]) for i in zip(x,y)])
+          if ncp == 0:
+              poly = new_shape
+          else:
+              # Remove the holes if there are any
+              poly = poly.difference(new_shape)
+              # Can also be left out if you want to include all rings
+
+      # do something with polygon
+      print poly
+  """
+
+
+
+
+
+
+  return 0
+
+
+  """
+
   ########################################################################
   # todo: the method works for year 50 of simulation HPP 1, but seems to #
   # fail in some other cases                                             #
@@ -574,3 +661,4 @@ def channel_edges(x, y, tri, channel, smin = 1e-6):
 
 
   return MultiPolygon(pols)
+  """
