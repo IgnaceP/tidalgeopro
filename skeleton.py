@@ -7,13 +7,11 @@ Author: Olivier Gourgue
 
 """
 
-
 import numpy as np
-from shapely.geometry import Point, LineString, MultiLineString, MultiPolygon
-from shapely.ops import nearest_points
+from shapely import geometry, ops
+import time
 
-from centerline.geometry import Centerline
-
+import centerline.geometry
 
 
 ################################################################################
@@ -32,10 +30,22 @@ def raw_skeleton(mpol):
 
   """
 
-  # compute and return list of raw skeletons (one for each polygon)
+  print('')
+  print('computing the raw skeleton can be a long process...')
+
+  # start timer
+  start = time.time()
+
+  # compute a list of raw skeletons (one for each polygon)
   skls = []
   for pol in mpol.geoms:
-    skls.append(Centerline(pol))
+    skls.append(centerline.geometry.Centerline(pol))
+
+  # print time
+  print('raw skeleton computed in %.2f seconds' % (time.time() - start))
+  print('')
+
+  # return list of raw skeletons
   return skls
 
 
@@ -192,11 +202,11 @@ def clean_skeleton(skls, mpol, ratio = 1):
         coords_loc = []
         for j in sps[i]:
           coords_loc.append((coords[j, 0], coords[j, 1]))
-        l = LineString(coords_loc).length
+        l = geometry.LineString(coords_loc).length
 
         # maximum distance to closest channel edge
-        p0 = Point((coords[sns[i, 0], 0], coords[sns[i, 0], 1]))
-        p1 = Point((coords[sns[i, 1], 0], coords[sns[i, 1], 1]))
+        p0 = geometry.Point((coords[sns[i, 0], 0], coords[sns[i, 0], 1]))
+        p1 = geometry.Point((coords[sns[i, 1], 0], coords[sns[i, 1], 1]))
         d0 = np.inf
         d1 = np.inf
         for lr in lrs:
@@ -285,8 +295,8 @@ def clean_skeleton(skls, mpol, ratio = 1):
     tmp = []
     for p in sp:
       tmp.append((coords[p, 0], coords[p, 1]))
-    lss.append(LineString(tmp))
-  mls = MultiLineString(lss)
+    lss.append(geometry.LineString(tmp))
+  mls = geometry.MultiLineString(lss)
 
   # section nodes
   nodes = list(np.unique(sns))
@@ -304,7 +314,7 @@ def clean_skeleton(skls, mpol, ratio = 1):
       if pol.contains(ls):
         pols.append(pol)
         break
-  mpol = MultiPolygon(pols)
+  mpol = geometry.MultiPolygon(pols)
 
   return coords, sections, mls, mpol
 
@@ -373,13 +383,13 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       n0 = sections[s, 0]
       if np.isfinite(dist[n0]):
         lss0.append(lss[s])
-    mls0 = MultiLineString(lss0)
+    mls0 = geometry.MultiLineString(lss0)
 
     # distance-to-skeleton array
     dist_skl = np.zeros(dist.shape) + np.inf
     for n in range(len(dist_skl)):
       if np.isinf(dist[n]):
-        dist_skl[n] = Point(coords[n, 0], coords[n, 1]).distance(mls0)
+        dist_skl[n] = geometry.Point(coords[n, 0], coords[n, 1]).distance(mls0)
 
     # look for closest mini-skeleton long enough to be added to main skeleton
     while True:
@@ -412,14 +422,14 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       else:
 
         # nearest section
-        p_ext = Point(coords[n_ext, 0], coords[n_ext, 1])
+        p_ext = geometry.Point(coords[n_ext, 0], coords[n_ext, 1])
         for i in range(len(lss)):
           if p_ext.distance(lss[i]) == dist_skl[n_ext]:
             s = i
             break
 
         # nearest point on the main skeleton
-        p_skl = nearest_points(p_ext, lss[s])[1]
+        p_skl = ops.nearest_points(p_ext, lss[s])[1]
 
         # downstream distance of nearest point
         dist_p_skl = dist[sections[s, 0]] + lss[s].project(p_skl)
@@ -475,7 +485,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       dist1 = dist[n1]
       ls_coords = list(lss[s].coords)
       ls_coords.reverse()
-      lss[s] = LineString(ls_coords)
+      lss[s] = geometry.LineString(ls_coords)
 
     # only keep main skeleton
     if np.isfinite(dist0) and np.isfinite(dist1):
@@ -520,9 +530,9 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
 
       # line string
       if len(points) > 1:
-        lss_new.append(LineString(points))
+        lss_new.append(geometry.LineString(points))
       else:
-        lss_new.append(LineString())
+        lss_new.append(geometry.LineString())
         if not already_printed:
           print('warning: some empty line strings in final skeleton')
           already_printed = True
@@ -531,7 +541,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
   coords = np.array(coords_new)
   dist = np.array(dist_new)
   sections = np.array(sections_new)
-  mls = MultiLineString(lss_new)
+  mls = geometry.MultiLineString(lss_new)
   p_coords = np.array(p_coords)
   p_dist = np.array(p_dist)
   p_sections = np.array(p_sections)
@@ -543,7 +553,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       if pol.contains(ls):
         pols.append(pol)
         break
-  mpol = MultiPolygon(pols)
+  mpol = geometry.MultiPolygon(pols)
 
   return coords, dist, sections, mls, p_coords, p_dist, p_sections, mpol
 
@@ -594,7 +604,7 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
 
     # downstream distance of tip point is the distance to channel edges
     if with_distance_to_downstream_edge:
-      p0 = Point(coords_new[n0, 0], coords_new[n0, 1])
+      p0 = geometry.Point(coords_new[n0, 0], coords_new[n0, 1])
       for lr in lrs:
         dist[n0] = np.minimum(dist[n0], p0.distance(lr))
     else:
@@ -653,7 +663,7 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
         sections_new[s, 1] = n0
         ls_coords = list(lss[s].coords)
         ls_coords.reverse()
-        lss[s] = LineString(ls_coords)
+        lss[s] = geometry.LineString(ls_coords)
 
     # convert list into array
     buf = np.array(buf)
@@ -687,14 +697,14 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
 
       # cut line string at equal downstream distance point
       for i in range(len(lss[s].coords)):
-        pi = Point(lss[s].coords[i])
+        pi = geometry.Point(lss[s].coords[i])
         if lss[s].project(pi) == dist_eq - dist[n0]:
           coords_new.append([p_eq.x, p_eq.y])
           dist.append(dist_eq)
           sections_new.append([n0, len(coords_new) - 1])
           sections_new.append([n1, len(coords_new) - 1])
-          lss.append(LineString(lss[s].coords[:i + 1]))
-          lss.append(LineString(lss[s].coords[i:]))
+          lss.append(geometry.LineString(lss[s].coords[:i + 1]))
+          lss.append(geometry.LineString(lss[s].coords[i:]))
           trash.append(s)
           break
         if lss[s].project(pi) > dist_eq - dist[n0]:
@@ -702,8 +712,10 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
           dist.append(dist_eq)
           sections_new.append([n0, len(coords_new) - 1])
           sections_new.append([n1, len(coords_new) - 1])
-          lss.append(LineString(lss[s].coords[:i] + [(p_eq.x, p_eq.y)]))
-          lss.append(LineString([(p_eq.x, p_eq.y)] + lss[s].coords[i:]))
+          lss.append(geometry.LineString(lss[s].coords[:i] +
+                                         [(p_eq.x, p_eq.y)]))
+          lss.append(geometry.LineString([(p_eq.x, p_eq.y)] +
+                                         lss[s].coords[i:]))
           trash.append(s)
           break
 
@@ -719,6 +731,6 @@ def downstream_distance(coords, sections, mls, mpol, dns, \
   sections_new = np.array(sections_new)
 
   # convert list of section line strings into multi-line string
-  mls_new = MultiLineString(lss)
+  mls_new = geometry.MultiLineString(lss)
 
   return coords_new, dist, sections_new, mls_new
