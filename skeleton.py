@@ -335,9 +335,9 @@ def clean_skeleton(skls, mpol, ratio = 1):
 # final skeleton ###############################################################
 ################################################################################
 
-def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
+def final_skeleton(coords, sections, mls, mpol, dns, dx = 1):
 
-  """ Compute final skeleton by computing downstream distances, orienting sections from down- to upstream, connecting unconnected mini-skeletons if the ratio (mini-skeleton upstream distance / distance to main skeleton) is higher than a threshold value, and redefining the skeleton with a regular distance between points
+  """ Compute final skeleton by computing downstream distances, orienting sections from down- to upstream and redefining the skeleton with a regular distance between points
 
   Attention: the indices of the downstream tip points must be given by the user (only non-automated part of the process)
 
@@ -349,7 +349,6 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
   dns (list of integers): indices of the downstream nodes
 
   Optional parameters:
-  ratio (float, default = 1): threshold ratio for unconnected mini-skeletons (mini-skeleton upstream distance / distance to main skeleton): mini-skeleton with smaller ratio are disregarded
   dx (float, default = 1): distance (m) between two points of the final skeleton
 
   Returns:
@@ -375,93 +374,12 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
     = downstream_distance(coords, sections, mls, mpol, dns)
 
 
-  ########################################################
-  # connect unconnected sections if they are long enough #
-  ########################################################
-
-  # initialize list of reconnected nodes
-  reconnected_nodes = []
-
-  # convert multi-line string into list of line strings
-  lss = list(mls.geoms)
-
-  """
-  # as long as there are nodes not connected and not disregarded
-  while np.sum(np.isinf(dist)) > 0:
-
-    # main skeleton
-    lss0 = []
-    for s in range(len(lss)):
-      n0 = sections[s, 0]
-      if np.isfinite(dist[n0]):
-        lss0.append(lss[s])
-    mls0 = geometry.MultiLineString(lss0)
-
-    # distance-to-skeleton array
-    dist_skl = np.zeros(dist.shape) + np.inf
-    for n in range(len(dist_skl)):
-      if np.isinf(dist[n]):
-        dist_skl[n] = geometry.Point(coords[n, 0], coords[n, 1]).distance(mls0)
-
-    # look for closest mini-skeleton long enough to be added to main skeleton
-    while True:
-
-      # closest unconnected node
-      n_ext = np.argmin(dist_skl)
-
-      # stop loop if all unconnected nodes have been connected or disregarded
-      if np.sum(np.isfinite(dist_skl)) == 0:
-        break
-
-      # corresponding mini-skeleton and upstream distance
-      coords_ext, dist_ext, sections_ext, mls_ext = \
-        downstream_distance(coords, sections, mls, mpol, [n_ext], \
-                            with_distance_to_downstream_edge = False)
-      upstream_ext = np.max(dist_ext[np.isfinite(dist_ext)])
-
-      ####################################################################
-      # to be corrected in future versions:                              #
-      #   coords_ext, sections_ext and mls_ext should probably be used   #
-      #   to update coords, sections and mls                             #
-      ####################################################################
-
-      # add mini-skeleton if ratio between upstream distance and distance to
-      # main skeleton higher than threshold
-      if upstream_ext / dist_skl[n_ext] < ratio:
-        dist[n_ext] = np.nan
-        dist_skl[n_ext] = np.inf
-
-      else:
-
-        # nearest section
-        p_ext = geometry.Point(coords[n_ext, 0], coords[n_ext, 1])
-        for i in range(len(lss)):
-          if p_ext.distance(lss[i]) == dist_skl[n_ext]:
-            s = i
-            break
-
-        # nearest point on the main skeleton
-        p_skl = ops.nearest_points(p_ext, lss[s])[1]
-
-        # downstream distance of nearest point
-        dist_p_skl = dist[sections[s, 0]] + lss[s].project(p_skl)
-
-        # update downstream distance array
-        dist[np.isfinite(dist_ext)] = dist_p_skl + dist_skl[n_ext] \
-                                    + dist_ext[np.isfinite(dist_ext)]
-
-        # update list of reconnected nodes
-        for n in range(coords.shape[0]):
-          if np.isfinite(dist_ext[n]):
-            reconnected_nodes.append(n)
-
-        break
-  """
-
-
   #########
   # clean #
   #########
+
+  # convert multi-line string into list of line strings
+  lss = list(mls.geoms)
 
   # initialize new lists
   coords_new = []
@@ -483,24 +401,6 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
     n1 = sections[s, 1]
     dist0 = dist[n0]
     dist1 = dist[n1]
-
-    """
-    ########################################################################
-    # to be corrected in future versions:                                  #
-    #   for some reasons, some sections are still reversed                 #
-    #   (apparently from added disconnected mini-skeletons)                #
-    ########################################################################
-
-    # hack to handle the problem mentioned in the frame above
-    if dist0 > dist1:
-      n0 = sections[s, 1]
-      n1 = sections[s, 0]
-      dist0 = dist[n0]
-      dist1 = dist[n1]
-      ls_coords = list(lss[s].coords)
-      ls_coords.reverse()
-      lss[s] = geometry.LineString(ls_coords)
-    """
 
     # only keep main skeleton
     if np.isfinite(dist0) and np.isfinite(dist1):
