@@ -385,6 +385,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
   # convert multi-line string into list of line strings
   lss = list(mls.geoms)
 
+  """
   # as long as there are nodes not connected and not disregarded
   while np.sum(np.isinf(dist)) > 0:
 
@@ -455,6 +456,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
             reconnected_nodes.append(n)
 
         break
+  """
 
 
   #########
@@ -482,6 +484,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
     dist0 = dist[n0]
     dist1 = dist[n1]
 
+    """
     ########################################################################
     # to be corrected in future versions:                                  #
     #   for some reasons, some sections are still reversed                 #
@@ -497,6 +500,7 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       ls_coords = list(lss[s].coords)
       ls_coords.reverse()
       lss[s] = geometry.LineString(ls_coords)
+    """
 
     # only keep main skeleton
     if np.isfinite(dist0) and np.isfinite(dist1):
@@ -545,7 +549,9 @@ def final_skeleton(coords, sections, mls, mpol, dns, ratio = 1, dx = 1):
       else:
         lss_new.append(geometry.LineString())
         if not already_printed:
+          print('')
           print('warning: some empty line strings in final skeleton')
+          print('')
           already_printed = True
 
   # update arrays and multi-line string
