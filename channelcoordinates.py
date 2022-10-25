@@ -22,6 +22,17 @@ warnings.filterwarnings("ignore")
 multiprocessing_flag = True
 #############################################################################
 
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
 def channelCoordsForOnePoint(xy, p, return_projected_point = False, print_info = False):
     """
     Function to calculate the channel width of a single point in a polygon representing channels
@@ -74,7 +85,7 @@ def channelCoordsForOnePoint(xy, p, return_projected_point = False, print_info =
     b_l = p_c[1] - a_l*p_c[0]
 
     if print_info:
-        print('--------------------------------------\n left, central and right vertex:')
+        print('# --------------------------------------------------------------------------------------------------------- #\n left, central and right vertex:')
 
         print(p_l)
         print(p_c)
@@ -127,7 +138,6 @@ def channelCoordsForOnePoint(xy, p, return_projected_point = False, print_info =
     else: d_l = float('inf')
 
 
-
     # check if intersection of straigt between POI and right segment and right segment straight is located within the bounds of the right segment
     if a_r != float('inf') and a_r != float('-inf'):
         x_r = (p[1] + (a_r**-1)*p[0]-b_r)/(a_r + 1/a_r)
@@ -155,7 +165,7 @@ def channelCoordsForOnePoint(xy, p, return_projected_point = False, print_info =
 
     # like in example 2
     if d_l == d_r == float('inf'):
-        print('example 2')
+        process = 'example 2'
         pc = ((p_c[0]-p[0])**2+(p_c[1]-p[1])**2)**0.5
         x_proj, y_proj = p_c
         xy_new = xy.copy()
@@ -164,23 +174,33 @@ def channelCoordsForOnePoint(xy, p, return_projected_point = False, print_info =
     else:
         pc = np.min([d_l, d_r])
         if d_l < d_r:
-            print('example 1')
+            process = 'example 1'
             x_proj, y_proj = x_l,y_l
             xy_new = np.insert(xy, neigh_loc, np.array([x_proj, y_proj]), axis = 0)
             ac_i = neigh_loc
         else:
-            print('example 3')
+            process = 'example 3'
             x_proj, y_proj = x_r,y_r
             xy_new = np.insert(xy, neigh_loc+1, np.array([x_proj, y_proj]), axis = 0)
             ac_i = neigh_loc+1
     xy_dist = np.cumsum(((xy_new[1:,0]-xy_new[:-1,0])**2 + (xy_new[1:,1]-xy_new[:-1,1])**2)**0.5)
     xy_dist = np.insert(xy_dist,0,0)
     ac = xy_dist[ac_i]
+    if print_info: process
 
-    print('cumsum xy:')
-    print(xy_dist)
-    print('ac_i:')
-    print(ac_i)
+    # projection vector
+    v_proj = np.array([x_proj - p[0],y_proj - p[1]])
+    if process in ['example 1','example 3']:
+        v_cl = np.array([xy[ac_i,0] - x_proj,xy[ac_i,1] - y_proj])
+    else:
+        v_cl = np.array([xy[ac_i+1,0] - x_proj,xy[ac_i+1,1] - y_proj])
+    v_angle = np.cross(v_proj,v_cl)
+    if v_angle > 0: pc *= -1
+
+    if print_info:
+        print('projection vector: ', v_proj)
+        print('centerline vector: ', v_cl)
+        print('angle between vectors', v_angle)
 
     if return_projected_point:
         return pc, ac, [x_proj, y_proj]
