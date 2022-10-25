@@ -13,7 +13,7 @@ import json
 from shapely.geometry import Polygon as shPol
 from shapely.geometry import MultiPolygon as shMPol
 from shapely.geometry import shape as shapshape
-import utm
+#import utm
 import numpy as np
 from pyproj import CRS
 from pol2pol import project, pol2Pol
